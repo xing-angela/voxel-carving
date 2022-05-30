@@ -13,16 +13,18 @@ def get_silhouettes(images):
 
     all_silhouettes = []
     for i in range(len(images)):
-        # convert the image to grayscale
-        grayscale = cv2.cvtColor(images[i], cv2.COLOR_BGR2GRAY)
+        if images[i] is not None:
+            # convert the image to grayscale
+            grayscale = cv2.cvtColor(images[i], cv2.COLOR_BGR2GRAY)
+            blur = cv2.blur(grayscale, (3, 3))
 
-        # get the silhouette of the image
-        _, silhouette = cv2.threshold(
-            grayscale, 127, 255, cv2.THRESH_BINARY)
+            # get the silhouette of the image
+            _, silhouette = cv2.threshold(
+                blur, 40, 255, cv2.THRESH_BINARY)
 
-        all_silhouettes.append(silhouette)
+            all_silhouettes.append(silhouette)
 
-        return np.array(all_silhouettes)
+    return np.array(all_silhouettes)
 
 
 def get_camera_info(path):
@@ -100,6 +102,8 @@ def show_voxel_model(points, voxel_size):
     pcd.points = o3d.utility.Vector3dVector(points)
     pcd.colors = o3d.utility.Vector3dVector(
         np.random.uniform(0, 1, size=(points.shape[0], 3)))
+    # pcd.colors = o3d.utility.Vector3dVector(
+    #     np.zeros((points.shape[0], points.shape[1])))
     voxel_grid = o3d.geometry.VoxelGrid.create_from_point_cloud(
         pcd, voxel_size=voxel_size)
     o3d.visualization.draw_geometries([voxel_grid])

@@ -1,3 +1,5 @@
+from os import remove
+from matplotlib.pyplot import xcorr
 import numpy as np
 
 
@@ -42,3 +44,36 @@ def create_voxel_grid(minimum, maximum, num_voxels):
                 voxel_points.append([x_coor, y_coor, z_coor])
 
     return np.array(voxel_points), voxel_side_length
+
+
+def carve(voxel_grid, silhouette, proj_mat):
+
+    # adds 1 to voxel grid coordinates to make them homogenous coordiantes
+    ones = np.ones((voxel_grid.shape[0], 1))
+    homogenous_voxel = np.append(voxel_grid, ones, axis=1)
+
+    # coverts homogenous coordiantes to image coordiantes
+    img_coors = np.transpose(
+        np.matmul(proj_mat, np.transpose(homogenous_voxel)))
+
+    # turns homogenous coordinates into image coordinates
+    x_coors = np.ndarray.round(img_coors[:, 0] / img_coors[:, 2]).astype(int)
+    y_coors = np.ndarray.round(img_coors[:, 1] / img_coors[:, 2]).astype(int)
+
+    # removes out of bounds indices
+    remove_x = np.where(x_coors >= silhouette.shape[1])
+    remove_y = np.where(y_coors >= silhouette.shape[0])
+    remove_indices = np.concatenate((remove_x, remove_y), axis=None)
+
+    removed_voxels = voxel_grid[remove_indices]
+
+    if not len(remove_indices) == 0:
+        x_coors = np.delete(x_coors, remove_indices)
+        y_coors = np.delete(y_coors, remove_indices)
+        voxel_grid = np.delete(voxel_grid, remove_indices)
+
+    # gets the voxels that are in the silhouette
+    silhouette_vals = silhouette[y_coors, x_coors]
+    voxel_indices = np.where(silhouette_vals == 255)
+    new_voxels = voxel_grid[voxel_indices]
+    return np.vstack([new_voxels, removed_voxels])

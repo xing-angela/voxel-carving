@@ -1,10 +1,11 @@
 import argparse
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 import cv2
 from process import get_silhouettes, get_camera_info, get_bounding_box, \
     show_voxel_model
-from carve import create_voxel_grid
+from carve import create_voxel_grid, carve
 
 
 def parse_args():
@@ -17,7 +18,7 @@ def parse_args():
     parser.add_argument(
         '--images',
         required=True,
-        choices=['dino', 'dino_test'],
+        choices=['dino', 'dino_test', 'temple', 'templeSR'],
         help='Which image sequence to use')
 
     return parser.parse_args()
@@ -49,17 +50,39 @@ def main():
     # min_coors, max_coors = get_bounding_box(cam_coors)
     # print(min_coors)
     # print(max_coors)
-    min_coors = np.array([-0.041897, 0.001126, -0.037845])
-    max_coors = np.array([0.030897, 0.088227, 0.035495])
-    print(min_coors)
-    print(max_coors)
+
+    # dino
+    # min_coors = np.array([-0.041897, 0.001126, -0.037845])
+    # max_coors = np.array([0.030897, 0.088227, 0.035495])
+
+    # temple
+    # min_coors = np.array([-0.054568, 0.001728, -0.042945])
+    # max_coors = np.array([0.047855, 0.161892, 0.032236])
+
+    # templeSR
+    min_coors = np.array([-0.073568, 0.021728, -0.012445])
+    max_coors = np.array([0.028855, 0.181892, 0.062736])
 
     # creates the initial voxel grid
-    voxel_grid, voxel_length = create_voxel_grid(min_coors, max_coors, 300)
-    print(voxel_grid)
+    num_voxels = 100000
+    print(f'showing initial voxel grid with {num_voxels} voxels')
+    voxel_grid, voxel_length = create_voxel_grid(
+        min_coors, max_coors, num_voxels)
     show_voxel_model(voxel_grid, voxel_length)
-    # show_point_cloud(voxel_grid)
-    # plot_surface(voxel_grid, voxel_length)
+
+    curr_voxel_grid = voxel_grid
+
+    print('showing the carved voxel grid')
+    # plt.imshow(silhouettes[2], cmap='gray')
+    # plt.show()
+    # curr_voxel_grid = carve(curr_voxel_grid, silhouettes[2], proj_mats[2])
+    # show_voxel_model(curr_voxel_grid, voxel_length)
+    for i in range(len(silhouettes)):
+        # plt.imshow(silhouettes[i], cmap='gray')
+        # plt.show()
+        curr_voxel_grid = carve(curr_voxel_grid, silhouettes[i], proj_mats[i])
+
+    show_voxel_model(curr_voxel_grid, voxel_length)
 
 
 if __name__ == '__main__':
