@@ -1,5 +1,3 @@
-from os import remove
-from matplotlib.pyplot import xcorr
 import numpy as np
 
 
@@ -7,12 +5,12 @@ def create_voxel_grid(minimum, maximum, num_voxels):
     """
     Creates the initial voxel grid.
 
-    input: a numpy array containing the minimum coordinates for the voxel grid, 
-           a numpy array containing the maximum coordinates for the voxel grid, 
-           and the number of voxels we want to use.
+    input: a numpy array containing the minimum coordinates for the voxel grid.
+           a numpy array containing the maximum coordinates for the voxel grid.
+           the number of voxels we want to use.
     output: a numpy array containing the coordinates for the voxels where each 
-            row is a x,y,z coordiante for a single voxel and the distance 
-            between each voxel.
+              row is a x,y,z coordiante for a single voxel and the distance 
+              between each voxel.
     """
 
     x_length = maximum[0] - minimum[0]
@@ -46,34 +44,49 @@ def create_voxel_grid(minimum, maximum, num_voxels):
     return np.array(voxel_points), voxel_side_length
 
 
-def carve(voxel_grid, silhouette, proj_mat):
+def carve(voxel_grid, silhouettes, proj_mats):
+    """
+    Carves out the object from the silhouettes.
 
-    # adds 1 to voxel grid coordinates to make them homogenous coordiantes
-    ones = np.ones((voxel_grid.shape[0], 1))
-    homogenous_voxel = np.append(voxel_grid, ones, axis=1)
+    input: a numpy array representing the initial voxel grid.
+           a numpy array containing all the silhouettes of the images.
+           a numpy array containing all the corresponding projection matrices.
+    output: a numpy array containing the coordinate points of the voxels that
+              make up the reconstruction.
+    """
 
-    # coverts homogenous coordiantes to image coordiantes
-    img_coors = np.transpose(
-        np.matmul(proj_mat, np.transpose(homogenous_voxel)))
+    threshold = silhouettes.shape[0] * 0.8
 
-    # turns homogenous coordinates into image coordinates
-    x_coors = np.ndarray.round(img_coors[:, 0] / img_coors[:, 2]).astype(int)
-    y_coors = np.ndarray.round(img_coors[:, 1] / img_coors[:, 2]).astype(int)
+    new_voxels = []
 
-    # removes out of bounds indices
-    remove_x = np.where(x_coors >= silhouette.shape[1])
-    remove_y = np.where(y_coors >= silhouette.shape[0])
-    remove_indices = np.concatenate((remove_x, remove_y), axis=None)
+    for i in range(voxel_grid.shape[0]):
 
-    removed_voxels = voxel_grid[remove_indices]
+        # gets the homogenous img coordinates
+        homogenous_voxel = np.append(voxel_grid[i], 1)
+        img_coors = proj_mats @ homogenous_voxel
 
-    if not len(remove_indices) == 0:
-        x_coors = np.delete(x_coors, remove_indices)
-        y_coors = np.delete(y_coors, remove_indices)
-        voxel_grid = np.delete(voxel_grid, remove_indices)
+        # gets the cartesian image coordinates
+        x = np.ndarray.round(img_coors[:, 0] / img_coors[:, 2]).astype(int)
+        y = np.ndarray.round(img_coors[:, 1] / img_coors[:, 2]).astype(int)
+        z = np.arange(len(x))
 
-    # gets the voxels that are in the silhouette
-    silhouette_vals = silhouette[y_coors, x_coors]
-    voxel_indices = np.where(silhouette_vals == 255)
-    new_voxels = voxel_grid[voxel_indices]
-    return np.vstack([new_voxels, removed_voxels])
+        #  removes out of bounds indices
+        remove_x = np.where(x >= silhouettes[0].shape[1])
+        remove_y = np.where(y >= silhouettes[0].shape[0])
+        remove_indices = np.concatenate((remove_x, remove_y), axis=None)
+
+        if not len(remove_indices) == 0:
+            x = np.delete(x, remove_indices)
+            y = np.delete(y, remove_indices)
+            z = np.delete(z, remove_indices)
+
+        values = silhouettes[z, y, x]
+
+        # counts the number of values equal to 255 and if count is greater
+        #   than threshold, then voxel is included
+        p = np.count_nonzero(values == 255)
+
+        if p >= threshold:
+            new_voxels.append(voxel_grid[i])
+
+    return np.array(new_voxels)

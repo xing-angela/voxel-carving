@@ -1,10 +1,8 @@
 import argparse
 import os
 import numpy as np
-import matplotlib.pyplot as plt
 import cv2
-from process import get_silhouettes, get_camera_info, get_bounding_box, \
-    show_voxel_model
+from process import get_silhouettes, get_camera_info, show_voxel_model
 from carve import create_voxel_grid, carve
 
 
@@ -18,8 +16,13 @@ def parse_args():
     parser.add_argument(
         '--images',
         required=True,
-        choices=['dino', 'dino_test', 'temple', 'templeSR'],
+        choices=['dino', 'temple'],
         help='Which image sequence to use')
+    parser.add_argument(
+        '--num_voxels',
+        type=int,
+        default=200000,
+        help='The number of voxels to use')
 
     return parser.parse_args()
 
@@ -29,7 +32,7 @@ def main():
 
     # gets the image files
     data_dir = os.path.join('../data/', args.images)
-    image_files = os.listdir(data_dir)
+    image_files = np.array(os.listdir(data_dir))
 
     images = []
     for image_file in image_files:
@@ -41,48 +44,32 @@ def main():
     print(f'got silhouettes for {args.images} sequence')
 
     # gets the projection matrices of the cameras for each image
-    proj_mats, cam_coors = get_camera_info('../data/' + args.images +
-                                           '_info/' + args.images + '_par.txt')
+    proj_mats = get_camera_info('../data/' + args.images +
+                                '_info/' + args.images + '_par.txt', image_files)
     print(f'got projection matrices and camera coordinates ' +
           f'for cameras of {args.images} images')
 
-    # gets the bounding box information
-    # min_coors, max_coors = get_bounding_box(cam_coors)
-    # print(min_coors)
-    # print(max_coors)
-
-    # dino
-    # min_coors = np.array([-0.041897, 0.001126, -0.037845])
-    # max_coors = np.array([0.030897, 0.088227, 0.035495])
-
-    # temple
-    # min_coors = np.array([-0.054568, 0.001728, -0.042945])
-    # max_coors = np.array([0.047855, 0.161892, 0.032236])
-
-    # templeSR
-    min_coors = np.array([-0.073568, 0.021728, -0.012445])
-    max_coors = np.array([0.028855, 0.181892, 0.062736])
+    # sets the bounding box information based on the dataset
+    min_coors = np.zeros(3)
+    max_coors = np.zeros(3)
+    if (args.images == 'dino'):
+        min_coors = np.array([-0.041897, 0.001126, -0.037845])
+        max_coors = np.array([0.030897, 0.088227, 0.035495])
+    if (args.images == 'temple'):
+        min_coors = np.array([-0.054568, 0.001728, -0.042945])
+        max_coors = np.array([0.047855, 0.161892, 0.032236])
 
     # creates the initial voxel grid
-    num_voxels = 100000
+    num_voxels = args.num_voxels
     print(f'showing initial voxel grid with {num_voxels} voxels')
     voxel_grid, voxel_length = create_voxel_grid(
         min_coors, max_coors, num_voxels)
     show_voxel_model(voxel_grid, voxel_length)
 
-    curr_voxel_grid = voxel_grid
-
+    # creates the reconstruction
     print('showing the carved voxel grid')
-    # plt.imshow(silhouettes[2], cmap='gray')
-    # plt.show()
-    # curr_voxel_grid = carve(curr_voxel_grid, silhouettes[2], proj_mats[2])
-    # show_voxel_model(curr_voxel_grid, voxel_length)
-    for i in range(len(silhouettes)):
-        # plt.imshow(silhouettes[i], cmap='gray')
-        # plt.show()
-        curr_voxel_grid = carve(curr_voxel_grid, silhouettes[i], proj_mats[i])
-
-    show_voxel_model(curr_voxel_grid, voxel_length)
+    new_voxels = carve(voxel_grid, silhouettes, proj_mats)
+    show_voxel_model(new_voxels, voxel_length)
 
 
 if __name__ == '__main__':
